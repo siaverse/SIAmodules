@@ -1,0 +1,18 @@
+sm_irr:
+  title: Range-restricted Reliability
+  category: Reliability
+  binding:
+    server: sm_irr_server
+    ui: sm_irr_ui
+sm_cat:
+  title: Computerized Adaptive Tests
+  category: Modules
+  binding:
+    server: sm_cat_server
+    ui: sm_cat_ui
+sm_dif_c:
+  title: Differential Item Functioning in Change (DIF-C)
+  category: DIF/Fairness
+  binding:
+    server: sm_dif_c_server
+    ui: sm_dif_c_ui
