@@ -26,8 +26,8 @@ read_me <- function() {
 
   mods <- yaml::read_yaml(mods_yaml)
 
-  mods_titles <- mods %>%
-    purrr::map_chr("title") %>%
+  mods_titles <- mods |>
+    purrr::map_chr("title") |>
     sort()
 
   mods_bullets <- paste0(
@@ -35,7 +35,7 @@ read_me <- function() {
   )
 
   # to ANSI
-  mods_bullets <- mods_bullets %>% purrr::map_chr(cli::format_inline)
+  mods_bullets <- mods_bullets |> purrr::map_chr(cli::format_inline)
 
   # make each entry a CLI bullet
   names(mods_bullets) <- rep("*", length(mods_bullets))

@@ -82,7 +82,7 @@ sm_irr_server <- function(id, imports = NULL, ...) {
     # load AIBS data from SIA, there is no need to store them here
     AIBS <- ShinyItemAnalysis::AIBS
 
-    k_max <- AIBS$ScoreRankAdj %>% max(na.rm = TRUE)
+    k_max <- AIBS$ScoreRankAdj |> max(na.rm = TRUE)
 
 
     # transform percentage to Ks (check against Ks, not percents)
@@ -119,12 +119,12 @@ sm_irr_server <- function(id, imports = NULL, ...) {
 
     # ** Caterpillar plot input ######
     reliability_restricted_caterpillarplot_input <- reactive({
-      AIBS %>%
+      AIBS |>
         mutate(hl = case_when(
           input$reliability_restricted_direction == "top" & ScoreRankAdj <= n_sel() ~ "sol",
           input$reliability_restricted_direction == "bottom" & ScoreRankAdj > (k_max - n_sel()) ~ "sol",
           TRUE ~ "alp"
-        ) %>% factor(levels = c("alp", "sol"))) %>%
+        ) |> factor(levels = c("alp", "sol"))) |>
         ggplot(aes(x = .data$ScoreRankAdj, y = .data$Score, group = .data$ID, alpha = .data$hl)) +
         geom_line(col = "gray") +
         suppressWarnings(geom_point(aes(text = paste0(
@@ -144,8 +144,8 @@ sm_irr_server <- function(id, imports = NULL, ...) {
 
     # ** Plotly output for caterpillar plot ######
     output$reliability_restricted_caterpillarplot <- renderPlotly({
-      reliability_restricted_caterpillarplot_input() %>%
-        ggplotly(tooltip = c("text")) %>%
+      reliability_restricted_caterpillarplot_input() |>
+        ggplotly(tooltip = c("text")) |>
         plotly::config(displayModeBar = FALSE)
     })
 
@@ -179,7 +179,7 @@ sm_irr_server <- function(id, imports = NULL, ...) {
       ),
       {
         isolate({
-          entries <- reliability_restricted_res$vals %>%
+          entries <- reliability_restricted_res$vals |>
             names()
 
           # propose a new entry
@@ -210,8 +210,8 @@ sm_irr_server <- function(id, imports = NULL, ...) {
     # ** ICC plot - current choice ######
     reliability_restricted_iccplot_curr <- reactive({
       req(reliability_restricted_res$vals)
-      plt_data <- reliability_restricted_res$vals %>%
-        bind_rows(.id = "name") %>%
+      plt_data <- reliability_restricted_res$vals |>
+        bind_rows(.id = "name") |>
         filter(str_detect(
           .data$name,
           paste0(
@@ -239,9 +239,9 @@ sm_irr_server <- function(id, imports = NULL, ...) {
         "_sel-", n_sel()
       )
 
-      reliability_restricted_iccplot_curr() %>%
-        mutate(hl = if_else(.data$name == curr_plt_name, "sol", "alp") %>%
-          factor(levels = c("alp", "sol"))) %>%
+      reliability_restricted_iccplot_curr() |>
+        mutate(hl = if_else(.data$name == curr_plt_name, "sol", "alp") |>
+          factor(levels = c("alp", "sol"))) |>
         ggplot(aes(.data$prop_sel, .data$ICC1, ymin = .data$ICC1_LCI, ymax = .data$ICC1_UCI, alpha = .data$hl)) + # TODO general
         geom_linerange() + # separate as plotly messes up otherwise
         suppressWarnings(geom_point(aes(text = paste0(
@@ -266,8 +266,8 @@ sm_irr_server <- function(id, imports = NULL, ...) {
 
     # ** Reliability plot render ######
     output$reliability_restricted_iccplot <- renderPlotly({
-      reliability_restricted_iccplot_input() %>%
-        ggplotly(tooltip = "text") %>%
+      reliability_restricted_iccplot_input() |>
+        ggplotly(tooltip = "text") |>
         plotly::config(displayModeBar = FALSE)
     })
 
@@ -290,7 +290,7 @@ sm_irr_server <- function(id, imports = NULL, ...) {
         "range_restricted_reliability_data.csv"
       },
       content = function(file) {
-        data <- reliability_restricted_iccplot_curr() %>% select(-.data$name)
+        data <- reliability_restricted_iccplot_curr() |> select(-.data$name)
         write.csv(data, file, row.names = FALSE)
       }
     )
@@ -465,22 +465,12 @@ sm_irr_ui <- function(id, imports = NULL, ...) {
               <a href = "https://doi.org/10.1111/rssa.12681", target = "_blank">doi:10.1111/rssa.12681</a>
               </li>
 
-              <li>Martinkova, P., & Drabinova, A. (2018).
-              ShinyItemAnalysis for teaching psychometrics and to enforce routine analysis of educational tests.
-              The R Journal, 10(2), 503-515.
-              <a href = "https://doi.org/10.32614/RJ-2018-074", target = "_blank">doi:10.32614/RJ-2018-074</a>
-              </li>
             </ul>'),
 
     # acknowledgements -------------------------------------------------------------
     h4("Acknowledgements"),
     p(
-      "ShinyItemAnalysis Modules are developed by the ",
-      a(
-        "Computational Psychometrics Group",
-        href = "https://www.cs.cas.cz/comps/",
-        target = "_blank", .noWS = "after"
-      ), " supported by the Czech Science Foundation under Grant Number ",
+      "This ShinyItemAnalysis Module was developed with support by the Czech Science Foundation under Grant Number ",
       a(
         "21-03658S",
         href = "https://www.cs.cas.cz/comps/projectTheorFoundComPs.html",

@@ -21,6 +21,7 @@ Useful links:
 Authors:
 \itemize{
   \item Jan Netik \email{netik@cs.cas.cz} (\href{https://orcid.org/0000-0002-3888-3203}{ORCID})
+  \item Adela Hladka \email{hladka@cs.cas.cz} (\href{https://orcid.org/0000-0002-9112-1208}{ORCID})
 }
 
 }

@@ -1,4 +1,3 @@
-
 # Module documentation ----------------------------------------------------
 
 # This is the user-facing documentation.
@@ -59,68 +58,41 @@ NULL
 #' @importFrom DT renderDT
 #' @importFrom stats median qchisq sd symnum t.test
 #' @importFrom shinyjs enable disable
+#' @importFrom stats coef
 
 sm_dif_c_server <- function(id, imports = NULL, ...) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # in case ther are no imports, set a default values as in SIA
+    # in case there are no imports, set a default values as in SIA
     if (is.null(imports)) {
       imports <- list(
         setting_figures = list(
           text_size = 12,
           height = 4,
-          width =8,
+          width = 8,
           dpi = 600
-          )
         )
+      )
     }
 
-    # static data -------------------------------------------------------------
-
-    # TODO: possible performance benefit loading LtL outside of the module function
-    # but that would penalize other module users (thats again why its better not
-    # to make module compilations)
-    LearningToLearn <- ShinyItemAnalysis::LearningToLearn
-
-    items <- LearningToLearn[60:100]
-    group <- LearningToLearn[, "track_01"]
-    dif_matching <- reactiveVal(LearningToLearn[, "score_6"])
-
-    item_names <- reactiveVal(names(items))
-    total_score <- reactiveVal(rowSums(items))
-    z_score <- reactiveVal(scale(rowSums(items)))
-    dif_present <- reactiveVal(TRUE)
-    binary <- reactiveVal(items)
-    group <- reactiveVal(group)
+    # LearningtoLearn data and static variables are precomputed in data-raw/create_internal_data.R
+    # and loaded as the package attaches as `ltl` list
 
 
     # summary -----------------------------------------------------------------
 
     # total scores module (see the very end of this file for definitions)
-    total_scores_summary_tab_server("total_scores_summary_tab_ts", total_score, group)
-    total_scores_summary_tab_server("total_scores_summary_tab_dm", dif_matching, group)
+    total_scores_summary_tab_server("total_scores_summary_tab_ts", ltl$total_score, ltl$group)
+    total_scores_summary_tab_server("total_scores_summary_tab_dm", ltl$dif_matching, ltl$group)
 
-    total_scores_t_test_server("total_scores_t_test_ts", total_score, group)
-    total_scores_t_test_server("total_scores_t_test_dm", dif_matching, group)
+    total_scores_t_test_server("total_scores_t_test_ts", ltl$total_score, ltl$group)
+    total_scores_t_test_server("total_scores_t_test_dm", ltl$dif_matching, ltl$group)
 
-    total_scores_hist_server("total_scores_hist_ts", total_score, group, "Total score")
-    total_scores_hist_server("total_scores_hist_dm", dif_matching, group, "Observed score")
-
+    total_scores_hist_server("total_scores_hist_dm", ltl$dif_matching, ltl$group, "Total score in Grade 6")
+    total_scores_hist_server("total_scores_hist_ts", ltl$total_score, ltl$group, "Total score in Grade 9")
 
     # DIF-C -------------------------------------------------------------------
-
-    # ** Warning, if total_score() or z_score() have NAs
-    na_score <- reactive({
-      if (any(is.na(total_score())) | any(is.na(z_score()))) {
-        txt <- "<font color = 'orange'>
-				For this analysis, observations with missing values have been omitted.
-				</font>"
-      } else {
-        txt <- ""
-      }
-      txt
-    })
 
     match_NLR <- c("DIF_NLR_summary_matching", "DIF_NLR_items_matching")
     puri_NLR <- c("DIF_NLR_purification_print", "DIF_NLR_purification_plot")
@@ -142,60 +114,60 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
     })
     observeEvent(DIF_nlr$model, {
       if (DIF_nlr$model != input$DIF_NLR_model_print) {
-        updateCheckboxGroupInput(
+        updateSelectInput(
           session = session,
-          inputId = ns("DIF_NLR_model_print"),
+          inputId = "DIF_NLR_model_print",
           selected = DIF_nlr$model
         )
       }
       if (DIF_nlr$model != input$DIF_NLR_model_plot) {
-        updateCheckboxGroupInput(
+        updateSelectInput(
           session = session,
-          inputId = ns("DIF_NLR_model_plot"),
+          inputId = "DIF_NLR_model_plot",
           selected = DIF_nlr$model
         )
       }
     })
 
     # ** Updating type ####
-    observeEvent(input$DIF_NLR_type_print, {
-      DIF_nlr$type <- input$DIF_NLR_type_print
-    })
-    observeEvent(input$DIF_NLR_type_plot, {
-      DIF_nlr$type <- input$DIF_NLR_type_plot
-    })
-    observeEvent(DIF_nlr$type, {
-      if (length(DIF_nlr$type) != length(input$DIF_NLR_type_print)) {
-        updateCheckboxGroupInput(
-          session = session,
-          inputId = ns("DIF_NLR_type_print"),
-          selected = DIF_nlr$type
-        )
-      } else {
-        if (any(DIF_nlr$type != input$DIF_NLR_type_print)) {
+    observeEvent(input$DIF_NLR_type_print,
+      {
+        DIF_nlr$type <- input$DIF_NLR_type_print
+      },
+      ignoreNULL = FALSE
+    )
+    observeEvent(input$DIF_NLR_type_plot,
+      {
+        DIF_nlr$type <- input$DIF_NLR_type_plot
+      },
+      ignoreNULL = FALSE
+    )
+
+    observeEvent(DIF_nlr$type,
+      {
+        dif_type <- DIF_nlr$type
+
+        # to uncheck all, we have to change the input to empty char.
+        if (is.null(dif_type)) dif_type <- character(0)
+
+        if (!setequal(dif_type, input$DIF_NLR_type_print)) {
           updateCheckboxGroupInput(
             session = session,
-            inputId = ns("DIF_NLR_type_print"),
-            selected = DIF_nlr$type
+            inputId = "DIF_NLR_type_print",
+            selected = dif_type
           )
         }
-      }
-      if (length(DIF_nlr$type) != length(input$DIF_NLR_type_plot)) {
-        updateCheckboxGroupInput(
-          session = session,
-          inputId = ns("DIF_NLR_type_plot"),
-          selected = DIF_nlr$type
-        )
-      } else {
-        if (any(DIF_nlr$type != input$DIF_NLR_type_plot)) {
+
+        if (!setequal(dif_type, input$DIF_NLR_type_plot)) {
           updateCheckboxGroupInput(
             session = session,
-            inputId = ns("DIF_NLR_type_plot"),
-            selected = DIF_nlr$type
+            inputId = "DIF_NLR_type_plot",
+            selected = dif_type
           )
         }
-      }
-    })
+      },
+      ignoreNULL = FALSE
+    )
 
     # ** Updating correction ####
     observeEvent(input$DIF_NLR_correction_method_print, {
@@ -208,14 +180,14 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       if (DIF_nlr$correction != input$DIF_NLR_correction_method_print) {
         updateSelectInput(
           session = session,
-          inputId = ns("DIF_NLR_correction_method_print"),
+          inputId = "DIF_NLR_correction_method_print",
           selected = DIF_nlr$correction
         )
       }
       if (DIF_nlr$correction != input$DIF_NLR_correction_method_plot) {
         updateSelectInput(
           session = session,
-          inputId = ns("DIF_NLR_correction_method_plot"),
+          inputId = "DIF_NLR_correction_method_plot",
           selected = DIF_nlr$correction
         )
       }
@@ -232,14 +204,14 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       if (DIF_nlr$purification != input$DIF_NLR_purification_print) {
         updateCheckboxInput(
           session = session,
-          inputId = ns("DIF_NLR_purification_print"),
+          inputId = "DIF_NLR_purification_print",
           value = DIF_nlr$purification
         )
       }
       if (DIF_nlr$purification != input$DIF_NLR_purification_plot) {
         updateCheckboxInput(
           session = session,
-          inputId = ns("DIF_NLR_purification_plot"),
+          inputId = "DIF_NLR_purification_plot",
           value = DIF_nlr$purification
         )
       }
@@ -256,55 +228,27 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       if (DIF_nlr$matching != input$DIF_NLR_summary_matching) {
         updateCheckboxInput(
           session = session,
-          inputId = ns("DIF_NLR_summary_matching"),
+          inputId = "DIF_NLR_summary_matching",
           value = DIF_nlr$matching
         )
       }
       if (DIF_nlr$matching != input$DIF_NLR_items_matching) {
         updateCheckboxInput(
           session = session,
-          inputId = ns("DIF_NLR_items_matching"),
+          inputId = "DIF_NLR_items_matching",
           value = DIF_nlr$matching
         )
       }
     })
 
-    # update selectInput & disable purification if DMV present
-    observe({
-      if (dif_present() == TRUE) {
-        lapply(match_NLR, function(i) {
-          updateSelectInput(
-            session,
-            paste0(i),
-            choices = c(
-              "Grade 6" = "zuploaded",
-              "Grade 9" = "zscore"
-            ),
-            selected = "zuploaded"
-          )
-        })
-      } else {
-        lapply(match_NLR, function(i) {
-          updateSelectInput(
-            session,
-            paste0(i),
-            choices = c(
-              "Standardized total score" = "zscore"
-            ),
-            selected = "zscore"
-          )
-        })
-      }
-    })
-
     mapply(
       function(match, puri) {
-        observeEvent(input[[paste0(match)]], {
-          if (input[[paste0(match)]] %in% c("uploaded", "zuploaded")) {
-            updateCheckboxInput(session, paste0(puri), value = FALSE)
-            shinyjs::disable(paste0(puri))
+        observeEvent(input[[match]], {
+          if (input[[match]] == "zuploaded") {
+            updateCheckboxInput(session, puri, value = FALSE)
+            shinyjs::disable(puri)
           } else {
-            shinyjs::enable(paste0(puri))
+            shinyjs::enable(puri)
           }
         })
       },
@@ -313,28 +257,34 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
 
     # ** Updating item slider ####
     observe({
-      item_count <- ncol(binary())
+      item_count <- ncol(ltl$items)
       updateSliderInput(
         session = session,
-        inputId = ns("DIF_NLR_item_plot"),
+        inputId = "DIF_NLR_item_plot",
         max = item_count
       )
     })
 
     # ** MODEL ####
     model_DIF_NLR <- reactive({
-      data <- data.frame(binary())
-      group <- unlist(group())
+      validate(
+        # type is checked with shiny::isTruthy, so no condition needed
+        need(DIF_nlr$type, "At least one parameter is required for DIF testing.")
+      )
 
-      model <- input$DIF_NLR_model_print
-      type <- paste0(input$DIF_NLR_type_print, collapse = "")
-      adj.method <- input$DIF_NLR_correction_method_print
-      purify <- input$DIF_NLR_purification_print
+      data <- ltl$items
+      group <- ltl$group
 
-      if (input$DIF_NLR_summary_matching == "zscore") {
-        match <- z_score()
-      } else if (input$DIF_NLR_summary_matching == "zuploaded") {
-        match <- scale(apply(as.data.frame(unlist(dif_matching())), 1, sum))
+      model <- DIF_nlr$model
+      type <- paste0(DIF_nlr$type, collapse = "")
+      adj.method <- DIF_nlr$correction
+      purify <- DIF_nlr$purification
+      match <- DIF_nlr$matching
+
+
+      # if the observed variable is not zscore, use grade 6 zscore
+      if (match == "zuploaded") {
+        match <- scale(ltl$dif_matching)
       }
 
       fit <- tryCatch(
@@ -342,15 +292,15 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
           Data = data, group = group, focal.name = 1, match = match,
           model = model, type = type,
           p.adjust.method = adj.method, purify = purify,
-          test = "LR"
+          test = "LR", method = "nls"
         ),
         error = function(e) e
       )
 
       validate(
         need(
-          class(fit) == "difNLR",
-          paste0("This method cannot be used on this data. Error returned: ", fit$message)
+          inherits(fit, "difNLR"),
+          paste0("Error returned: ", fit$message)
         ),
         errorClass = "validation-error"
       )
@@ -362,17 +312,17 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
     observeEvent(input$DIF_NLR_model_print, {
       # what parameters can be selected with choice of model
       enaSelection <- switch(input$DIF_NLR_model_print,
-                             "Rasch" = c("b"),
-                             "1PL" = c("b"),
-                             "2PL" = c("a", "b"),
-                             "3PLcg" = c("a", "b"),
-                             "3PLdg" = c("a", "b"),
-                             "3PLc" = c("a", "b", "c"),
-                             "3PLd" = c("a", "b", "d"),
-                             "4PLcgdg" = c("a", "b"),
-                             "4PLcg" = c("a", "b", "d"),
-                             "4PLdg" = c("a", "b", "c"),
-                             "4PL" = c("a", "b", "c", "d")
+        "Rasch" = c("b"),
+        "1PL" = c("b"),
+        "2PL" = c("a", "b"),
+        "3PLcg" = c("a", "b"),
+        "3PLdg" = c("a", "b"),
+        "3PLc" = c("a", "b", "c"),
+        "3PLd" = c("a", "b", "d"),
+        "4PLcgdg" = c("a", "b"),
+        "4PLcg" = c("a", "b", "d"),
+        "4PLdg" = c("a", "b", "c"),
+        "4PL" = c("a", "b", "c", "d")
       )
       # what parameters cannot be selected with choice of model
       disSelection <- setdiff(letters[1:4], enaSelection)
@@ -385,13 +335,13 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       # updating selected choices for type of DIF
       updateCheckboxGroupInput(
         session = session,
-        inputId = ns("DIF_NLR_type_print"),
+        inputId = "DIF_NLR_type_print",
         selected = enaSelection
       )
 
       # create object that identifies enabled and disabled options
-      disElement <- paste0("#DIF_NLR_type_print :nth-child(", disNum, ") label")
-      enaElement <- paste0("#DIF_NLR_type_print :nth-child(", enaNum, ") label")
+      disElement <- paste0("#", ns("DIF_NLR_type_print"), " :nth-child(", disNum, ") label")
+      enaElement <- paste0("#", ns("DIF_NLR_type_print"), " :nth-child(", enaNum, ") label")
 
       # disable checkbox options of group
       shinyjs::enable(selector = enaElement)
@@ -464,17 +414,17 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
     observeEvent(input$DIF_NLR_model_plot, {
       # what parameters can be selected with choice of model
       enaSelection <- switch(input$DIF_NLR_model_plot,
-                             "Rasch" = c("b"),
-                             "1PL" = c("b"),
-                             "2PL" = c("a", "b"),
-                             "3PLcg" = c("a", "b"),
-                             "3PLdg" = c("a", "b"),
-                             "3PLc" = c("a", "b", "c"),
-                             "3PLd" = c("a", "b", "d"),
-                             "4PLcgdg" = c("a", "b"),
-                             "4PLcg" = c("a", "b", "d"),
-                             "4PLdg" = c("a", "b", "c"),
-                             "4PL" = c("a", "b", "c", "d")
+        "Rasch" = c("b"),
+        "1PL" = c("b"),
+        "2PL" = c("a", "b"),
+        "3PLcg" = c("a", "b"),
+        "3PLdg" = c("a", "b"),
+        "3PLc" = c("a", "b", "c"),
+        "3PLd" = c("a", "b", "d"),
+        "4PLcgdg" = c("a", "b"),
+        "4PLcg" = c("a", "b", "d"),
+        "4PLdg" = c("a", "b", "c"),
+        "4PL" = c("a", "b", "c", "d")
       )
       # what parameters cannot be selected with choice of model
       disSelection <- setdiff(letters[1:4], enaSelection)
@@ -487,13 +437,13 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       # updating selected choices for type of DIF
       updateCheckboxGroupInput(
         session = session,
-        inputId = ns("DIF_NLR_type_plot"),
+        inputId = "DIF_NLR_type_plot",
         selected = enaSelection
       )
 
       # create object that identifies enabled and disabled options
-      disElement <- paste0("#DIF_NLR_type_plot :nth-child(", disNum, ") label")
-      enaElement <- paste0("#DIF_NLR_type_plot :nth-child(", enaNum, ") label")
+      disElement <- paste0("#", ns("DIF_NLR_type_plot"), " :nth-child(", disNum, ") label")
+      enaElement <- paste0("#", ns("DIF_NLR_type_plot"), " :nth-child(", enaNum, ") label")
 
       # disable checkbox options of group
       shinyjs::enable(selector = enaElement)
@@ -516,13 +466,14 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       }
 
       pval_symb <- symnum(pval,
-                          c(0, 0.001, 0.01, 0.05, 0.1, 1),
-                          symbols = c("***", "**", "*", ".", "")
+        c(0, 0.001, 0.01, 0.05, 0.1, 1),
+        symbols = c("***", "**", "*", ".", "")
       )
       pval_symb[pval_symb == "?"] <- ""
 
-      coeffs <- coeffs_se_names()$coeffs
-      se <- coeffs_se_names()$se
+      res <- coeffs_se_names()
+      coeffs <- res$coeffs
+      se <- res$se
 
       colnames(coeffs) <- paste0("\\(\\mathit{", gsub("Dif", "_{Dif}", colnames(coeffs)), "}\\)")
       colnames(se) <- paste0("SE(\\(\\mathit{", gsub("Dif", "_{Dif}", colnames(se)), "}\\))")
@@ -547,14 +498,14 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
           colnames(coeffs_se)
         )
 
-      rownames(tab) <- item_names()
+      rownames(tab) <- ltl$item_names
 
       tab
     })
 
     output$coef_nlr_dif <- renderDT(
       {
-        coef_nlr_dif() %>% mutate(across(where(is.numeric), ~ round(.x, 3)))
+        coef_nlr_dif() |> mutate(across(where(is.numeric), ~ round(.x, 3)))
       },
       options = list(
         dom = "tipr", pageLength = 10, scrollX = TRUE,
@@ -568,14 +519,14 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
 
     coeffs_se_names <- reactive({
       model <- model_DIF_NLR()
+
+      tmp <- coef(model, IRTpars = TRUE, SE = TRUE, CI = 0, simplify = TRUE)
+
       res <- NULL
-
-      # res$coeffs <- do.call(rbind, lapply(model$nlrPAR, function(x) {na.omit(x[c("a", "b", "c", "d", "aDif", "bDif", "cDif", "dDif")])}))
-      # res$se <- do.call(rbind, lapply(model$nlrSE, function(x) {na.omit(x[c("a", "b", "c", "d", "aDif", "bDif", "cDif", "dDif")])}))
-      # colnames(se) <- paste0("SE(", colnames(se), ")")
-
-      res$se <- do.call(rbind, model$nlrSE)
-      res$coeffs <- do.call(rbind, model$nlrPAR)
+      res$se <- as.data.frame(tmp[grepl("SE", rownames(tmp)), , drop = FALSE])
+      rownames(res$se) <- gsub(" SE", "", rownames(res$se))
+      res$coeffs <- as.data.frame(tmp[grepl("estimate", rownames(tmp)), , drop = FALSE])
+      rownames(res$coeffs) <- gsub(" estimate", "", rownames(res$coeffs))
       res
     })
 
@@ -585,7 +536,7 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       if (DIFitems[1] == "No DIF item detected") {
         txt <- "No item was detected as DIF."
       } else {
-        txt <- paste0("Items detected as DIF items: ", paste(item_names()[DIFitems], collapse = ", "))
+        txt <- paste0("Items detected as DIF items: ", paste(ltl$item_names[DIFitems], collapse = ", "))
       }
       HTML(txt)
     })
@@ -595,17 +546,13 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       tab <- model_DIF_NLR()$difPur
 
       if (!is.null(tab)) {
-        colnames(tab) <- item_names()
+        colnames(tab) <- ltl$item_names
         rownames(tab) <- paste0("Step ", seq(0, nrow(tab) - 1))
         tab
       }
     })
     output$dif_nlr_puri_table <- renderDT(
-      {
-        dif_nlr_puri_table()
-      },
-      rownames = T,
-      colnames = T
+      dif_nlr_puri_table()
     )
 
     # ** Purification info - number of iter ####
@@ -633,33 +580,39 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       res <- NULL
 
       model <- model_DIF_NLR()
-      thr <- if (length(unique(model$df)) == 1) {
-        unique(qchisq(1 - model$alpha, model$df))
+
+      df <- model$df
+      if (length(dim(df)) == 2L) {
+        df <- df[, 1L]
+      }
+
+      thr <- if (length(unique(df)) == 1) {
+        unique(qchisq(1 - model$alpha, df))
       } else {
         NULL
       }
 
       res$mod <- paste("Model:", switch(unique(model$model),
-                                        "Rasch" = "Rasch model",
-                                        "1PL" = "1PL model",
-                                        "2PL" = "2PL model",
-                                        "3PL" = "3PL model",
-                                        "3PLcg" = "3PL model with fixed guessing for groups",
-                                        "3PLdg" = "3PL model with fixed inattention parameter for groups",
-                                        "3PLc" = "3PL model",
-                                        "3PLd" = "3PL model with inattention parameter",
-                                        "4PLcgdg" = "4PL model with fixed guessing and inattention parameter for groups",
-                                        "4PLcgd" = "4PL model with fixed guessing for groups",
-                                        "4PLd" = "4PL model with fixed guessing for groups",
-                                        "4PLcdg" = "4PL model with fixed inattention parameter for groups",
-                                        "4PLc" = "4PL model with fixed inattention parameter for groups",
-                                        "4PL" = "4PL model"
+        "Rasch" = "Rasch model",
+        "1PL" = "1PL model",
+        "2PL" = "2PL model",
+        "3PL" = "3PL model",
+        "3PLcg" = "3PL model with fixed guessing for groups",
+        "3PLdg" = "3PL model with fixed inattention parameter for groups",
+        "3PLc" = "3PL model",
+        "3PLd" = "3PL model with inattention parameter",
+        "4PLcgdg" = "4PL model with fixed guessing and inattention parameter for groups",
+        "4PLcgd" = "4PL model with fixed guessing for groups",
+        "4PLd" = "4PL model with fixed guessing for groups",
+        "4PLcdg" = "4PL model with fixed inattention parameter for groups",
+        "4PLc" = "4PL model with fixed inattention parameter for groups",
+        "4PL" = "4PL model"
       ))
 
       res$dmv <- paste("Observed score:", switch(as.character(model$match[1]), # ensures number is recognize as unnamed element
-                                                 "score" = "total score",
-                                                 "zscore" = "standardized total score",
-                                                 "uploaded"
+        "score" = "total score",
+        "zscore" = "standardized total score",
+        "uploaded"
       ))
 
       res$type <-
@@ -669,14 +622,14 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
         )
 
       res$p_adj <- paste("P-value correction method:", switch(model$p.adjust.method,
-                                                              holm = "Holm",
-                                                              hochberg = "Hochberg",
-                                                              hommel = "Hommel",
-                                                              bonferroni = "Bonferroni",
-                                                              BH = "Benjamini-Hochberg",
-                                                              BY = "Benjamini-Yekutieli",
-                                                              fdr = "FDR",
-                                                              none = "none"
+        holm = "Holm",
+        hochberg = "Hochberg",
+        hommel = "Hommel",
+        bonferroni = "Bonferroni",
+        BH = "Benjamini-Hochberg",
+        BY = "Benjamini-Yekutieli",
+        fdr = "FDR",
+        none = "none"
       ))
 
       res$puri <- paste("Item purification:", ifelse(model$purification == T, "used", "unutilized"))
@@ -727,7 +680,7 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
             par_names
           )
 
-        rownames(data) <- item_names()
+        rownames(data) <- ltl$item_names
 
         write.csv(data[, -4], file) # w/o blank col
         write(paste(
@@ -753,11 +706,6 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       }
     )
 
-    # ** Warning for missing values ####
-    output$DIF_NLR_na_alert <- renderUI({
-      txt <- na_score()
-      HTML(txt)
-    })
 
     # ** ITEMS ####
 
@@ -767,6 +715,7 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       item <- input$DIF_NLR_item_plot
 
       g <- plot(fit, item = item)[[1]] +
+        xlab(paste("Standardized total score in", get_grade_name(input$DIF_NLR_summary_matching))) +
         theme_app() +
         theme(
           legend.box.just = "top",
@@ -775,7 +724,7 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
           legend.key.width = unit(1, "cm"),
           legend.box = "horizontal"
         ) +
-        ggtitle(item_names()[item])
+        ggtitle(ltl$item_names[item])
       g
     })
 
@@ -785,39 +734,50 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       p <- ggplotly(g)
 
       p$x$data[[1]]$text <- paste0(
-        "Group: Reference", "<br />",
-        "Match: ", p$x$data[[1]]$x, "<br />",
-        "Probability: ", p$x$data[[1]]$y
+        "Group: Basic school track", "<br />",
+        "Standardized total score in ", get_grade_name(input$DIF_NLR_summary_matching), ": ", round(p$x$data[[1]]$x, 3), "<br />",
+        "Probability: ", round(p$x$data[[1]]$y, 3)
       )
       p$x$data[[2]]$text <- paste0(
-        "Group: Focal", "<br />",
-        "Match: ", p$x$data[[2]]$x, "<br />",
-        "Probability: ", p$x$data[[2]]$y
+        "Group: Selective academic track", "<br />",
+        "Standardized total score in ", get_grade_name(input$DIF_NLR_summary_matching), ": ", round(p$x$data[[2]]$x, 3), "<br />",
+        "Probability: ", round(p$x$data[[2]]$y, 3)
       )
 
-      p$x$data[[3]]$text <- gsub("size", "Group: Reference<br />Count", p$x$data[[3]]$text)
-      p$x$data[[3]]$text <- gsub("match", "Z-score", p$x$data[[3]]$text)
-      p$x$data[[3]]$text <- gsub("prob", "Empirical probability", p$x$data[[3]]$text)
-      p$x$data[[4]]$text <- gsub("size", "Group: Focal<br />Count", p$x$data[[4]]$text)
-      p$x$data[[4]]$text <- gsub("match", "Z-score", p$x$data[[4]]$text)
-      p$x$data[[4]]$text <- gsub("prob", "Empirical probability", p$x$data[[4]]$text)
+      p$x$data[[3]]$text <- paste0(
+        gsub(
+          "size", "Group: Basic school track<br />Count",
+          unlist(lapply(strsplit(p$x$data[[3]]$text, "<br />", fixed = TRUE), function(x) x[3]))
+        ),
+        "<br />Standardized total score in ", get_grade_name(input$DIF_NLR_summary_matching), ": ", round(p$x$data[[3]]$x, 3),
+        "<br />Empirical probability: ", round(p$x$data[[3]]$y, 3)
+      )
+
+      p$x$data[[4]]$text <- paste0(
+        gsub(
+          "size", "Group: Selective academic school track<br />Count",
+          unlist(lapply(strsplit(p$x$data[[4]]$text, "<br />", fixed = TRUE), function(x) x[3]))
+        ),
+        "<br />Standardized total score in ", get_grade_name(input$DIF_NLR_summary_matching), ": ", round(p$x$data[[4]]$x, 3),
+        "<br />Empirical probability: ", round(p$x$data[[4]]$y, 3)
+      )
 
       p$elementId <- NULL
-      hide_legend(p) %>% plotly::config(displayModeBar = FALSE)
+      hide_legend(p) |> plotly::config(displayModeBar = FALSE)
     })
 
     # ** DB for plot ####
     output$DP_plot_DIF_NLR <- downloadHandler(
       filename = function() {
-        paste0("fig_DIFNonlinear_", item_names()[input$DIF_NLR_item_plot], ".png")
+        paste0("fig_DIFNonlinear_", ltl$item_names[input$DIF_NLR_item_plot], ".png")
       },
       content = function(file) {
         ggsave(file,
-               plot = plot_DIF_NLRInput() +
-                 theme(text = element_text(size = imports$setting_figures$text_size)),
-               device = "png",
-               height = imports$setting_figures$height, width = imports$setting_figures$width,
-               dpi = imports$setting_figures$dpi
+          plot = plot_DIF_NLRInput() +
+            theme(text = element_text(size = imports$setting_figures$text_size)),
+          device = "png",
+          height = imports$setting_figures$height, width = imports$setting_figures$width,
+          dpi = imports$setting_figures$dpi
         )
       }
     )
@@ -890,10 +850,7 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
         item <- input$DIF_NLR_item_plot
         fit <- model_DIF_NLR()
 
-        tab_coef <- fit$nlrPAR[[item]]
-        tab_sd <- fit$nlrSE[[item]]
-
-        tab <- t(rbind(tab_coef, tab_sd))
+        tab <- t(coef(fit, IRTpars = TRUE, SE = TRUE, CI = 0, item = item)[[1]])
 
         rownames(tab) <- paste0("\\(\\mathit{", gsub("Dif", "_{Dif}", rownames(tab)), "}\\)")
         colnames(tab) <- c("Estimate", "SE")
@@ -902,14 +859,7 @@ sm_dif_c_server <- function(id, imports = NULL, ...) {
       },
       include.rownames = T
     )
-
-    # ** Warning for missing values ####
-    output$DIF_NLR_item_na_alert <- renderUI({
-      txt <- na_score()
-      HTML(txt)
-    })
-  }
-  )
+  })
 }
 
 
@@ -927,35 +877,28 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
 
   tagList(
     h3("Differential Item Functioning in Change (DIF-C)"),
-
     p(
-      "This ", code("ShinyItemAnalysis"), " module provides interactive display of
-        Differential Item Functioning in Change (DIF-C) with binary
-        Learning to Learn data, as more closesly described in ",
+      "This ", code("ShinyItemAnalysis"), " module provides an interactive
+        illustration of Differential Item Functioning in Change (DIF-C) using
+        binary ", code("LearningToLearn"), " data, as described in detail by ",
       a(
         "Martinkov\u00e1, Hladk\u00e1, and Potu\u017en\u00edkov\u00e1 (2020)",
         href = "https://doi.org/10.1016/j.learninstruc.2019.101286",
         target = "_blank",
         .noWS = "after"
       ),
-      ". In their paper, Martinkov\u00e1 et al. demonstrate that this more detailed
-        item-level analysis is able to detect between-group differences in
-        pre-post gains even in case when no difference is observable in gains in
-        total scores. DIF analysis is implemented with generalized logistic
-        regression models in the ", code("difNLR"), " package ",
+      ". Their study demonstrates that this more detailed item-level analysis
+        can reveal between-group differences in pre-post gains even when no
+        differences are observable in total score gains. The DIF-C analysis here
+        is implemented with generalized logistic regression models from the ",
+      code("difNLR"), " package ",
       a(
         "(Hladk\u00e1 & Martinkov\u00e1, 2020)",
         href = "https://doi.org/10.32614/RJ-2020-014",
         target = "_blank",
         .noWS = "after"
       ),
-      ". This module is a part of the ", code("ShinyItemAnalysis"), " package ",
-      a(
-        "(Martinkov\u00e1 & Drabinov\u00e1, 2018).",
-        href = "https://doi.org/10.32614/RJ-2018-074",
-        target = "_blank",
-        .noWS = "after"
-      ),
+      "."
     ),
 
 
@@ -964,88 +907,57 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
     tabsetPanel(
       tabPanel(
         "Total scores",
-        h4("Summary of total scores"),
+        h3("Summary of total scores"),
         p(
-          "DIF analysis may come to a different conclusion than a test of group differences in total scores.
-                        Two groups may have the same distribution of total scores, yet, some items may function differently
-                        for the two groups. Also, one of the groups may have a significantly lower total score, yet, it may
-                        happen that there is no DIF item ",
-          a("(Martinkov\u00e1 et al., 2017)",
-            href = "https://doi.org/10.1187/cbe.16-10-0307",
-            target = "_blank", .noWS = "after"
-          ),
-          ". This section examines the differences in observed scores only. Explore further DIF sections to analyze
-                        differential item functioning."
+          "This section examines differences in observed scores between two
+          groups of respondents: the basic school track and selective academic
+          track. To explore differential item functioning in change (DIF-C),
+          refer to the dedicated DIF sections. "
         ),
 
         # total scores module (see shiny modules definition in the end of the file)
-        h5("Grade 6"),
-
-        h6("Summary of total scores for groups"),
+        h4("Grade 6"),
+        h5("Summary of total scores for groups"),
         total_scores_summary_tab_ui(ns("total_scores_summary_tab_dm")),
-
-        h6("Comparison of total scores"),
+        h5("Comparison of total scores"),
         total_scores_t_test_ui(ns("total_scores_t_test_dm")),
-
-        h6("Histograms of total scores for groups"),
+        h5("Histograms of total scores for groups"),
         total_scores_hist_ui(ns("total_scores_hist_dm")),
-
-
-        h5("Grade 9"),
-
-        h6("Summary of total scores for groups"),
+        h4("Grade 9"),
+        h5("Summary of total scores for groups"),
         total_scores_summary_tab_ui(ns("total_scores_summary_tab_ts")),
-
-        h6("Comparison of total scores"),
+        h5("Comparison of total scores"),
         total_scores_t_test_ui(ns("total_scores_t_test_ts")),
-
-        h6("Histograms of total scores for groups"),
+        h5("Histograms of total scores for groups"),
         total_scores_hist_ui(ns("total_scores_hist_ts"))
       ),
       tabPanel(
         "DIF-C Summary",
         br(),
+        h3("DIF-C analysis"),
         p(
-          "In DIF analysis, the groups are compared in functioning of items with respect to respondent ability.
-                        In many methods, observed ability such as the standardized total score is used as the matching criterion.
-                        DIF can also be explored with respect to other observed score or criterion.
-                        For example, to analyze instructional sensitivity, ",
-          a("Martinkov\u00e1 et al. (2020)",
-            href = "https://doi.org/10.1016/j.learninstruc.2019.101286",
-            target = "_blank"
-          ),
-          " analyzed differential item functioning in change (DIF-C) by analyzing DIF on Grade 9 item answers
-                          while matching on Grade 6 total scores of the same respondents in a longitudinal setting
-                          (see toy data ", code("Learning to Learn 9"), " in the Data section)."
+          "Differential item functioning in change (DIF-C) is assessed by analyzing DIF on Grade 9 item responses
+          while matching on Grade 6 total scores of the same respondents in a longitudinal framework.
+          This analysis compares two respondent groups: the basic school track (reference) and the selective academic track. "
         ),
         h4("Method specification"),
         p(
-          "Here you can specify the assumed",
+          "Here, you can specify the assumed",
           strong("model", .noWS = "after"),
-          ". In 3PL and 4PL models, the abbreviations \\(c_{g}\\) or
-          \\(d_{g}\\) mean that parameters \\(c_i\\) or \\(d_i\\) are assumed
-          to be the same for both groups, otherwise they are allowed to
-          differ. With", strong("type"), "you can specify the type of DIF to
-          be tested by choosing the parameters in which a difference between
-          groups should be tested. You can also select", strong("correction
-          method"), "for multiple comparison or",
-          strong("item purification", .noWS = "after"), "."
+          ". By default, the 2PL model is selected, as in the original study.
+          In the 3PL and 4PL models, the abbreviations \\(c_{g}\\) or \\(d_{g}\\)
+          indicate that the parameters \\(c_i\\) or \\(d_i\\) are assumed
+          to be equal across groups; otherwise they are allowed to differ.
+          With the ", strong("type"), " option, you can specify which parameters
+          to test for between-group differences in DIF analysis. Additionally,
+          you can choose a ", strong("correction method"), "for multiple
+          comparisons or enable ", strong("item purification", .noWS = "after"),
+          ", which is available for DIF analysis only. "
         ),
         p(
-          "Finally, you may change the",
-          strong("Observed score", .noWS = "after"),
-          ". While matching on the standardized total score is typical, the
-          upload of other Observed scores is possible in the ",
-          strong("Data"), "section. Using a pre-test (standardized) total
-          score allows for testing differential item functioning in change
-          (DIF-C) to provide proofs of instructional sensitivity",
-          a(
-            "(Martinkov\u00e1 et al., 2020)",
-            href = "https://doi.org/10.1016/j.learninstruc.2019.101286",
-            target = "_blank",
-            .noWS = "after"
-          ),
-          ", also see", code("Learning To Learn 9"), " toy dataset."
+          "Finally, you may change the", strong("Observed score", .noWS = "after"),
+          ". Selecting the standardized total score from Grade 6 enables DIF-C
+          analysis, while using scores from Grade 9 allows for standard DIF analysis. "
         ),
         fluidRow(
           column(
@@ -1066,7 +978,7 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
                 "4PLcdg" = "4PLcdg",
                 "4PL" = "4PL"
               ),
-              selected = "3PLcg"
+              selected = "2PL"
             )
           ),
           column(
@@ -1080,7 +992,7 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
                 "\\(c\\)" = "c",
                 "\\(d\\)" = "d"
               ),
-              selected = c("\\(a\\)", "b")
+              selected = c("a", "b")
             )
           ),
           column(
@@ -1110,8 +1022,8 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
             selectInput(
               inputId = ns("DIF_NLR_summary_matching"),
               label = "Observed score",
-              choices = c("Standardized total score" = "zscore"),
-              selected = "zscore"
+              choices = grades_dict,
+              selected = "zuploaded"
             )
           )
         ),
@@ -1127,11 +1039,10 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
           adjustement, and significance codes. This table also provides
           estimated parameters for the best fitted model for each item. Note
           that \\(a_{iG_p}\\) (and also other parameters) from the equation
-          above consists of a parameter for the reference group and a
-          parameter for the difference between focal and reference groups,
+          above consists of a parameter for the reference group (basic school track) and a
+          parameter for the difference between the two groups,
           i.e., \\(a_{iG_p} = a_{i} + a_{iDif}G_{p}\\), where \\(G_{p} = 0\\)
-          for the reference group and \\(G_{p} = 1\\) for the focal group, as
-          stated in the table below. "
+          for the basic school track and \\(G_{p} = 1\\) for the selective academic track. "
         ),
         uiOutput(ns("DIF_NLR_na_alert")),
         strong(textOutput(ns("nlr_dif_items"))),
@@ -1163,37 +1074,33 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
       ),
       tabPanel(
         "DIF-C Items",
+        h3("DIF-C analysis"),
+        p(
+          "Differential item functioning in change (DIF-C) is assessed by analyzing DIF on Grade 9 item responses
+          while matching on Grade 6 total scores of the same respondents in a longitudinal framework.
+          This analysis compares two respondent groups: the basic school track (reference) and the selective academic track. "
+        ),
         h4("Method specification"),
         p(
-          "Here you can specify the assumed", strong("model", .noWS = "after"),
-          ". In 3PL and 4PL models, the abbreviations \\(c_{g}\\) or
-          \\(d_{g}\\) mean that parameters \\(c\\) or \\(d\\) are assumed to
-          be the same for both groups, otherwise they are allowed to differ.
-          With", strong("type"), "you can specify the type of DIF to be tested
-          by choosing the parameters in which a difference between groups
-          should be tested. You can also select", strong("correction method"),
-          "for multiple comparison or",
-          strong("item purification", .noWS = "after"), "."
+          "Here, you can specify the assumed",
+          strong("model", .noWS = "after"),
+          ". By default, the 2PL model is selected, as in the original study.
+          In the 3PL and 4PL models, the abbreviations \\(c_{g}\\) or \\(d_{g}\\)
+          indicate that the parameters \\(c_i\\) or \\(d_i\\) are assumed
+          to be equal across groups; otherwise they are allowed to differ.
+          With the ", strong("type"), " option, you can specify which parameters
+          to test for between-group differences in DIF analysis. Additionally,
+          you can choose a ", strong("correction method"), "for multiple
+          comparisons or enable ", strong("item purification", .noWS = "after"),
+          ", which is available for DIF analysis only. "
         ),
         p(
-          "Finally, you may change the",
-          strong("Observed score", .noWS = "after"),
-          ". While matching on the standardized total score is typical, the
-          upload of other observed scores is possible in the", strong("Data"),
-          "section. Using a pre-test (standardized) total score allows for
-          testing differential item functioning in change (DIF-C) to provide
-          proofs of instructional sensitivity",
-          a(
-            "(Martinkov\u00e1 et al., 2020)",
-            href = "https://doi.org/10.1016/j.learninstruc.2019.101286",
-            target = "_blank",
-            .noWS = "after"
-          ),
-          ", also see",
-          code("Learning To Learn 9"),
-          "toy dataset. For selected", strong("item"), "you can display plot
-          of its characteristic curves and table of its estimated parameters
-          with standard errors."
+          "Finally, you may change the", strong("Observed score", .noWS = "after"),
+          ". Selecting the standardized total score from Grade 6 enables DIF-C
+          analysis, while using scores from Grade 9 allows for standard DIF analysis.
+          For selected", strong("item"), "you can view a plot
+          of its characteristic curves and a table of its estimated parameters
+          with standard errors. "
         ),
         fluidRow(
           column(
@@ -1214,7 +1121,7 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
                 "4PLcdg" = "4PLcdg",
                 "4PL" = "4PL"
               ),
-              selected = "3PLcg"
+              selected = "2PL"
             )
           ),
           column(
@@ -1258,8 +1165,8 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
             selectInput(
               inputId = ns("DIF_NLR_items_matching"),
               label = "Observed score",
-              choices = c("Standardized total score" = "zscore"),
-              selected = "zscore"
+              choices = grades_dict,
+              selected = "zuploaded"
             )
           ),
           column(
@@ -1277,10 +1184,11 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
         ),
         h4("Plot with estimated DIF generalized logistic curve"),
         p(
-          "Points represent a proportion of the correct answer (empirical
-          probabilities) with respect to the observed score. Their size is
-          determined by the count of respondents who achieved a given level of
-          observed score with respect to the group membership."
+          "Points in the plot represent the proportion of correct responses (empirical
+          probabilities) with respect to standardized total score in Grade 6. Their size
+          reflects the number of respondents who achieved a particular level of
+          standardized total score in Grade 6 with respect to the group membership (either
+          basic school track or selective academic track)."
         ),
         plotlyOutput(ns("plot_DIF_NLR")),
         downloadButton(ns("DP_plot_DIF_NLR"), "Download figure"),
@@ -1290,13 +1198,13 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
         ),
         h4("Table of parameters"),
         p(
-          "This table summarizes estimated item parameters together with their
+          "This table summarizes estimated item parameters align with their
           standard errors. Note that \\(a_{iG_p}\\) (and also other
           parameters) from the equation above consists of a parameter for the
-          reference group and a parameter for the difference between focal and
-          reference groups, i.e., \\(a_{iG_p} = a_{i} + a_{iDif}G_{p}\\),
-          where \\(G_{p} = 0\\) for the reference group and \\(G_{p} = 1\\)
-          for the focal group, as stated in the table below. "
+          reference group (basic school track) and a parameter for the difference
+          between the two groups, i.e., \\(a_{iG_p} = a_{i} + a_{iDif}G_{p}\\),
+          where \\(G_{p} = 0\\) for the basic school track and \\(G_{p} = 1\\)
+          for the selective academic track. "
         ),
         fluidRow(
           column(12, tableOutput(ns("tab_coef_DIF_NLR")), align = "center")
@@ -1328,39 +1236,13 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
               <a href = "https://doi.org/10.32614/RJ-2020-014", target = "_blank">doi:10.32614/RJ-2020-014.</a>
               </li>
 
-              <li>Martinkov\u00e1, P., & Drabinov\u00e1, A. (2018).
-              ShinyItemAnalysis for teaching psychometrics and to enforce routine analysis of educational tests.
-              <i>The R Journal, 10</i>(2), 503-515.
-              <a href = "https://doi.org/10.32614/RJ-2018-074", target = "_blank">doi:10.32614/RJ-2018-074</a>
-              </li>
-
-              <li>Martinkov\u00e1, P., Drabinov\u00e1, A., Liaw, Y. L., Sanders, E. A., McFarland, J. L., & Price, R. M. (2017).
-              Checking equity: Why differential item functioning analysis should be a routine part
-              of developing conceptual Assessments.
-              <i>CBE-Life Sciences Education, 16</i>(2), rm2.
-              <a href = "https://doi.org/10.1187/cbe.16-10-0307",
-              target = "_blank">doi:10.1187/cbe.16-10-0307</a>
-              </li>
-
-              <li>Kolek, L., \u0160isler, V., Martinkov\u00e1, P., & Brom, C. (2021).
-              Can video games change attitudes towards history? Results from a laboratory experiment measuring short- and long-term effects.
-              <i>Journal of Computer Assisted Learning, 37</i>(5), 1348-1369.
-              <a href = "https://doi.org/10.1111/jcal.12575", target = "_blank">doi:10.1111/jcal.12575</a>
-              </li>
-
             </ul>'),
 
     # acknowledgements --------------------------------------------------------
 
     h4("Acknowledgements"),
     p(
-      "ShinyItemAnalysis Modules are developed by the",
-      a(
-        "Computational Psychometrics Group",
-        href = "https://www.cs.cas.cz/comps/",
-        target = "_blank"
-      ),
-      "supported by the Czech Science Foundation under Grant Number",
+      "This ShinyItemAnalysis Module was developed with support of the Czech Science Foundation under Grant Number",
       a(
         "21-03658S",
         href = "https://www.cs.cas.cz/comps/projectTheorFoundComPs.html",
@@ -1372,6 +1254,18 @@ sm_dif_c_ui <- function(id, imports = NULL, ...) {
   )
 }
 
+
+
+## globals
+
+grades_dict <- c(
+  "Grade 6" = "zuploaded",
+  "Grade 9" = "zscore"
+)
+
+get_grade_name <- function(input) {
+  names(grades_dict[input == grades_dict])
+}
 
 ## {shiny} modules -------------------------------------------------------
 
@@ -1397,12 +1291,12 @@ total_scores_summary_tab_server <- function(id, dif_matching, group) {
 
       d <- reactive({
         d <- tibble(
-          score = dif_matching(),
-          group = group() %>% factor(labels = c("reference (0)", "focal (1)"))
+          score = dif_matching,
+          group = factor(group, labels = c("Basic school track", "Selective academic track"))
         )
 
-        d %>%
-          group_by(group) %>%
+        d |>
+          group_by(group) |>
           summarise(
             n = n(),
             min = min(.data$score, na.rm = TRUE),
@@ -1442,11 +1336,11 @@ total_scores_hist_server <- function(id, dif_matching, group, xlab = NULL) {
 
       plt <- reactive({
         d <- tibble(
-          score = dif_matching(),
-          group = group() %>% factor(labels = c("reference (0)", "focal (1)"))
+          score = dif_matching,
+          group = factor(group, labels = c("Basic school track", "Selective academic track"))
         )
 
-        d %>%
+        d |>
           ggplot(aes(x = .data$score, fill = .data$group, col = .data$group)) +
           geom_histogram(binwidth = 1, position = "dodge2", alpha = 0.75) +
           xlab(xlab) +
@@ -1463,9 +1357,21 @@ total_scores_hist_server <- function(id, dif_matching, group, xlab = NULL) {
       })
 
       output$plot <- renderPlotly({
-        plt() %>%
-          ggplotly() %>%
+        g <- plt() |>
+          ggplotly() |>
           config(displayModeBar = FALSE)
+
+        g$x$data[[1]]$text <- paste0(
+          "Count: ", g$x$data[[1]]$y, "<br />",
+          "Score: ", round(g$x$data[[1]]$x), "<br />",
+          "Group: ", "Basic school track"
+        )
+        g$x$data[[2]]$text <- paste0(
+          "Count: ", g$x$data[[2]]$y, "<br />",
+          "Score: ", round(g$x$data[[2]]$x), "<br />",
+          "Group: ", "Selective academic track"
+        )
+        g
       })
     }
   )
@@ -1493,8 +1399,8 @@ total_scores_t_test_server <- function(id, dif_matching, group) {
 
       d <- reactive({
         d <- tibble(
-          score = dif_matching(),
-          group = group() %>% factor(labels = c("reference (0)", "focal (1)"))
+          score = dif_matching,
+          group = factor(group, labels = c("Basic school track", "Selective academic track"))
         )
 
         res <- t.test(score ~ group, d)

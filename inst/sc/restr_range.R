@@ -10,7 +10,7 @@ ICCrestricted(Data = AIBS, case = "ID", var = "Score", rank = "ScoreRankAdj",
               sel = 0.90, dir = "top")
 
 # caterpillar plot
-AIBS %>%
+AIBS |>
   ggplot(aes(x = ScoreRankAdj, y = Score, group = ID)) +
   geom_line(col = "gray") +
   geom_point(shape = 1, size = 1.5) +
@@ -33,7 +33,7 @@ base_way <- lapply(2:72, function(x) {
 do.call(rbind.data.frame, base_way)
 
 # plot
-all_top_restricted %>%
+all_top_restricted |>
   ggplot(aes(prop_sel, ICC1, ymin = ICC1_LCI, ymax = ICC1_UCI)) +
   geom_pointrange() + scale_x_continuous(labels = scales::percent) +
   labs(x = ("Proportion of top ratees"), y = "Reliability") +
