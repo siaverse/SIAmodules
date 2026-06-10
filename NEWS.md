@@ -1,4 +1,4 @@
-# SIAmodules (development version)
+# SIAmodules 0.1.3
 
 ## Major changes
 

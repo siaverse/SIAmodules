@@ -1,0 +1,22 @@
+citHeader("To cite the 'SIAmodules' package in publications, please use:")
+
+bibentry(
+  bibtype = "Article",
+  title = "Enhancing psychometric analysis with interactive {SIA} modules",
+  author = c(person("Patrícia", "Martinková"), person("Jan", "Netík"), person("Adéla", "Hladká")),
+  year = "2026",
+  journal = "Psychometrika",
+  note = "In Print",
+  textVersion = "Martinková, P., Netík, J., & Hladká, A. (2026). Enhancing psychometric analysis with interactive SIA modules [In Print]. Psychometrika. doi:10.48550/arXiv.2407.18943"
+)
+
+
+bibentry(
+  bibtype = "Book",
+  title = "Computational Aspects of Psychometric Methods: With {R}",
+  author = c(person("Patrícia", "Martinková"), person("Adéla", "Hladká")),
+  year = "2023",
+  publisher = "Chapman and Hall/CRC",
+  doi = "10.1201/9781003054313",
+  textVersion = "Martinková, P., & Hladká, A. (2023). Computational Aspects of Psychometric Methods: With R. Chapman and Hall/CRC. doi:10.1201/9781003054313"
+)

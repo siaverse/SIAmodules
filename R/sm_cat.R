@@ -137,20 +137,6 @@ sm_cat_ui <- function(id, imports = NULL, ...) {
         href = "https://doi.org/10.1201/9781003054313",
         target = "_blank"
       )
-    ),
-
-    # acknowledgements --------------------------------------------------------
-
-    h4("Acknowledgements"),
-    p(
-      "This ShinyItemAnalysis Module was developed with support by the Czech Science Foundation under Grant Number",
-      a(
-        "21-03658S",
-        href = "https://www.cs.cas.cz/comps/projectTheorFoundComPs.html",
-        target = "_blank",
-        .noWS = "after"
-      ),
-      "."
     )
   )
 }

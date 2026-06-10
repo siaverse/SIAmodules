@@ -11,7 +11,7 @@ Package including additional modules for interactive 'ShinyItemAnalysis' applica
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://www.ShinyItemAnalysis.org}
+  \item \url{https://ShinyItemAnalysis.org}
 }
 
 }

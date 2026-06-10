@@ -39,7 +39,7 @@ additional interactive presentations of selected psychometric topics:
 
 All modules are installed online at [Czech Academy of Sciences
 server](https://shiny.cs.cas.cz/ShinyItemAnalysis/). Visit our [**web
-page**](http://www.shinyitemanalysis.org/) about `ShinyItemAnalysis` to
+page**](https://shinyitemanalysis.org/) about `ShinyItemAnalysis` to
 learn more!
 
 ## Usage
